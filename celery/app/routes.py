@@ -49,8 +49,10 @@ class Router(object):
             if route:  # expands 'queue' in route.
                 return lpmerge(self.expand_destination(route), options)
         if 'queue' not in options:
+            name = self.app.conf.CELERY_DEFAULT_QUEUE_OPTIONS.get(
+                'name', self.app.conf.CELERY_DEFAULT_QUEUE)
             options = lpmerge(self.expand_destination(
-                              self.app.conf.CELERY_DEFAULT_QUEUE), options)
+                              name), options)
         return options
 
     def expand_destination(self, route):
