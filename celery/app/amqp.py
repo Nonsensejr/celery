@@ -54,10 +54,12 @@ class Queues(dict):
     _consume_from = None
 
     def __init__(self, queues=None, default_exchange=None,
-                 create_missing=True, ha_policy=None, autoexchange=None):
+                 create_missing=True, ha_policy=None, autoexchange=None,
+                 default_routing_key=None):
         dict.__init__(self)
         self.aliases = WeakValueDictionary()
         self.default_exchange = default_exchange
+        self.default_routing_key = default_routing_key
         self.create_missing = create_missing
         self.ha_policy = ha_policy
         self.autoexchange = Exchange if autoexchange is None else autoexchange
@@ -175,7 +177,13 @@ class Queues(dict):
     select_remove = deselect  # XXX compat
 
     def new_missing(self, name):
-        return Queue(name, self.autoexchange(name), name)
+        routing_key = self.default_routing_key
+        if routing_key is None:
+            routing_key = name
+        exchange = self.default_exchange
+        if exchange is None:
+            exchange = self.autoexchange(name)
+        return Queue(name, exchange=exchange, routing_key=routing_key)
 
     @property
     def consume_from(self):
@@ -420,7 +428,7 @@ class AMQP(object):
                         else autoexchange)
         return self.queues_cls(
             queues, self.default_exchange, create_missing,
-            ha_policy, autoexchange,
+            ha_policy, autoexchange, conf.CELERY_DEFAULT_ROUTING_KEY
         )
 
     def Router(self, queues=None, create_missing=None):
