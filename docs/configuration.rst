@@ -816,6 +816,42 @@ The default is: `celery`.
 
     :ref:`routing-changing-default-queue`
 
+.. setting:: CELERY_DEFAULT_QUEUE_OPTIONS
+
+CELERY_DEFAULT_QUEUE_OPTIONS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is a dict with the keyword arguments used to create a queue if the
+message has no route or no custom queue has been specified.
+Please see `kombu.Queue`_ for a description of the parameters.
+
+If any of the following keys are set, they will take precedence over other
+settings:
+
+* `name`: If set, will be used instead of :setting:`CELERY_DEFAULT_QUEUE`.
+* `routing_key`: If set, will be used instead of
+  :setting:`CELERY_DEFAULT_ROUTING_KEY`.
+* `exchange`: It is not recommended to set this. If set, will be used instead
+  of an exchange created using the :setting:`CELERY_DEFAULT_EXCHANGE` and
+  :setting:`CELERY_DEFAULT_EXCHANGE_TYPE` settings or the
+  :setting:`CELERY_DEFAULT_EXCHANGE_OPTIONS` setting. Use the 
+  :setting:`CELERY_DEFAULT_EXCHANGE_OPTIONS` setting to specify custom exchange
+  options instead.
+
+.. _`kombu.Queue`:
+    https://kombu.readthedocs.org/en/latest/reference/kombu.html#kombu.Queue
+
+.. _example-default-queue-options-config:
+
+Example configuration
+~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    CELERY_DEFAULT_QUEUE_OPTIONS = {
+        'auto_delete': True
+    }
+
 .. setting:: CELERY_DEFAULT_EXCHANGE
 
 CELERY_DEFAULT_EXCHANGE
@@ -834,6 +870,37 @@ CELERY_DEFAULT_EXCHANGE_TYPE
 Default exchange type used when no custom exchange type is specified
 for a key in the :setting:`CELERY_QUEUES` setting.
 The default is: `direct`.
+
+.. setting:: CELERY_DEFAULT_QUEUE_OPTIONS
+
+CELERY_DEFAULT_EXCHANGE_OPTIONS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is a dict with the keyword arguments used to create an exchange when no
+custom exchange is specified for a key in the :setting:`CELERY_QUEUES` setting.
+Please see `kombu.Exchange`_ for a description of the parameters.
+
+If any of the following keys are set, they will take precedence over other
+settings:
+
+* `name`: If set, will be used instead of :setting:`CELERY_DEFAULT_EXCHANGE`.
+* `type`: If set, will be used instead of
+  :setting:`CELERY_DEFAULT_EXCHANGE_TYPE`.
+
+.. _`kombu.Exchange`:
+    https://kombu.readthedocs.org/en/latest/reference/kombu.html#kombu.Exchange
+
+.. _example-default-exchange-options-config:
+
+Example configuration
+~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    CELERY_DEFAULT_EXCHANGE_OPTIONS = {
+        'name': 'custom-exchange',
+        'type': 'fanout'
+    }
 
 .. setting:: CELERY_DEFAULT_ROUTING_KEY
 

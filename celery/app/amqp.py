@@ -54,10 +54,13 @@ class Queues(dict):
     _consume_from = None
 
     def __init__(self, queues=None, default_exchange=None,
-                 create_missing=True, ha_policy=None, autoexchange=None):
+                 create_missing=True, ha_policy=None, autoexchange=None,
+                 default_routing_key=None, default_queue_options=None):
         dict.__init__(self)
         self.aliases = WeakValueDictionary()
         self.default_exchange = default_exchange
+        self.default_routing_key = default_routing_key
+        self.default_queue_options = default_queue_options or {}
         self.create_missing = create_missing
         self.ha_policy = ha_policy
         self.autoexchange = Exchange if autoexchange is None else autoexchange
@@ -175,7 +178,22 @@ class Queues(dict):
     select_remove = deselect  # XXX compat
 
     def new_missing(self, name):
-        return Queue(name, self.autoexchange(name), name)
+        # Check for None only, not any Falsey value.
+        routing_key = self.default_routing_key
+        if routing_key is None:
+            routing_key = name
+        exchange = self.default_exchange
+        if exchange is None:
+            exchange = self.autoexchange(name)
+        queue_options = {
+            'name': name,
+            'exchange': exchange,
+            'routing_key': routing_key,
+            }
+        queue_options.update(self.default_queue_options)
+
+        # Not using Queue.from_dict since 'exchange' can not be set on it.
+        return Queue(**queue_options)
 
     @property
     def consume_from(self):
@@ -416,14 +434,20 @@ class AMQP(object):
         if ha_policy is None:
             ha_policy = conf.CELERY_QUEUE_HA_POLICY
         if not queues and conf.CELERY_DEFAULT_QUEUE:
-            queues = (Queue(conf.CELERY_DEFAULT_QUEUE,
-                            exchange=self.default_exchange,
-                            routing_key=conf.CELERY_DEFAULT_ROUTING_KEY), )
+            # Backwards compatibility
+            options = {
+                'name': conf.CELERY_DEFAULT_QUEUE,
+                'exchange': self.default_exchange,
+                'routing_key': conf.CELERY_DEFAULT_ROUTING_KEY
+                }
+            options.update(conf.CELERY_DEFAULT_QUEUE_OPTIONS)
+            queues = (Queue(**options),)
         autoexchange = (self.autoexchange if autoexchange is None
                         else autoexchange)
         return self.queues_cls(
             queues, self.default_exchange, create_missing,
-            ha_policy, autoexchange,
+            ha_policy, autoexchange, conf.CELERY_DEFAULT_ROUTING_KEY,
+            default_queue_options=conf.CELERY_DEFAULT_QUEUE_OPTIONS,
         )
 
     def Router(self, queues=None, create_missing=None):
@@ -448,11 +472,13 @@ class AMQP(object):
 
         """
         conf = self.app.conf
+        routing_key = conf.CELERY_DEFAULT_QUEUE_OPTIONS.get(
+            'routing_key', conf.CELERY_DEFAULT_ROUTING_KEY)
         return self.app.subclass_with_self(
             self.producer_cls,
             reverse='amqp.TaskProducer',
             exchange=self.default_exchange,
-            routing_key=conf.CELERY_DEFAULT_ROUTING_KEY,
+            routing_key=routing_key,
             serializer=conf.CELERY_TASK_SERIALIZER,
             compression=conf.CELERY_MESSAGE_COMPRESSION,
             retry=conf.CELERY_TASK_PUBLISH_RETRY,
@@ -464,7 +490,9 @@ class AMQP(object):
 
     @cached_property
     def default_queue(self):
-        return self.queues[self.app.conf.CELERY_DEFAULT_QUEUE]
+        name = self.app.conf.CELERY_DEFAULT_QUEUE_OPTIONS.get(
+            'name', self.app.conf.CELERY_DEFAULT_QUEUE)
+        return self.queues[name]
 
     @cached_property
     def queues(self):
@@ -498,5 +526,9 @@ class AMQP(object):
 
     @cached_property
     def default_exchange(self):
-        return Exchange(self.app.conf.CELERY_DEFAULT_EXCHANGE,
-                        self.app.conf.CELERY_DEFAULT_EXCHANGE_TYPE)
+        exchange_options = {
+            'name': self.app.conf.CELERY_DEFAULT_EXCHANGE,
+            'type': self.app.conf.CELERY_DEFAULT_EXCHANGE_TYPE
+            }
+        exchange_options.update(self.app.conf.CELERY_DEFAULT_EXCHANGE_OPTIONS)
+        return Exchange(**exchange_options)
